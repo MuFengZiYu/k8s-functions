@@ -12,34 +12,37 @@ import org.apache.http.impl.client.HttpClients;
 
 import org.apache.http.util.EntityUtils;
 
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.context.properties.ConfigurationProperties;
+import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.*;
 
-import javax.servlet.http.HttpServletRequest;
+
 import java.io.FileNotFoundException;
-import java.io.IOException;
-import java.math.BigInteger;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.Date;
 import java.util.logging.Logger;
 
 
 @RestController
-
+@Component
+@ConfigurationProperties(prefix = "myhost")
 
 public class Calculator  {
 
-
-
+    @Value("${myhost.hostname}")
+    private String hostname;
     int num = Runtime.getRuntime().availableProcessors();
     Logger logger = Logger.getLogger(this.getClass().getName());
-    ReadComputing2 rc=new ReadComputing2();
-    CloseableHttpClient httpClient = HttpClients.createDefault();
 
+    long maximumsize=Runtime.getRuntime().maxMemory()/(1024*1024);
+    ReadComputing rc=new ReadComputing(maximumsize);
+
+    CloseableHttpClient httpClient = HttpClients.createDefault();
 
     @RequestMapping(value="/test",method= RequestMethod.GET)
     @ResponseBody
-    public String heallth(@RequestParam("a") String a) throws IOException, URISyntaxException, InterruptedException {
+    public String heallth(@RequestParam("a") String a)  {
         long x = 0;
         for(long i =0 ; i < Long.valueOf(a); i++){
             x = x +1;
@@ -50,15 +53,15 @@ public class Calculator  {
 
     @RequestMapping(value="/Calculate",method= RequestMethod.GET)
     @ResponseBody
-    public String Calculate(@RequestParam("path") String path, @RequestParam("value") String value) throws InterruptedException, FileNotFoundException {
+    public String Calculate(@RequestParam("path") String path, @RequestParam("value") String value, @RequestParam(value = "size", required = false , defaultValue = "2000") String size ) throws InterruptedException {
 
         String result = "";
 
+        logger.info("memosize"+ maximumsize);
         if (path.length() == 1) {
-            result = rc.CalculationTask(Integer.valueOf(value),num,10);
+            result = rc.CalculationTask(Long.valueOf(value),num,Integer.valueOf(size));
             return result;
         } else {
-
             int var = path.indexOf("-");
             String i = path.substring(0, var);
             String x = path.substring(var + 1);
@@ -70,10 +73,11 @@ public class Calculator  {
 
             try {
                 URI uri = new URIBuilder().setScheme("http")
-                        .setHost("myfibonacci.wh/calculate"+i+"/Calculate")
+                        .setHost(hostname + "/calculate"+i+"/Calculate")
                         //.setHost("127.0.0.1:8080/Calculate")
                         .setParameter("path", x)
                         .setParameter("value", y)
+                        .setParameter("size", size)
                         .build();
                 HttpGet get = new HttpGet(uri);   //使用Get方法提交
 
@@ -114,11 +118,10 @@ public class Calculator  {
                 // httpClient.close();
             }
             long endTime = new Date().getTime();
-            return result + "\n" + rc.CalculationTask(Integer.valueOf(j), num , 10) + ":" + (endTime - startTime);
+            return result + "\n" + rc.CalculationTask(Long.valueOf(j), num, Integer.valueOf(size) ) + ":" + (endTime - startTime);
         }
 
     }
-
 
 
 }
